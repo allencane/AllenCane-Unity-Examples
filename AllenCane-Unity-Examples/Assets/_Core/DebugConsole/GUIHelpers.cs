@@ -88,51 +88,66 @@ namespace Core.Utils
         /// </summary>
         private static bool CheckButtonInput(Rect region, string text)
         {
-            bool pressed = false;
             float currentTime = Time.time;
 
             // Method 1: Standard GUI.Button
-            bool guiPressed = GUI.Button(region, text);
-            if (guiPressed && currentTime - lastButtonClickTime >= buttonClickCooldown)
-            {
-                pressed = true;
-                lastButtonClickTime = currentTime;
-            }
+            if (CheckLegacyGUIInput(region, text, currentTime)) return true;
 
 #if UNITY_EDITOR
-            // Method 2: New Input System Mouse (Game View / Editor)
+            // Method 2: New Input System Mouse
+            if (CheckMouseInput(region, currentTime)) return true;
+
+            // Method 3: New Input System Touch
+            if (CheckTouchInput(region, currentTime)) return true;
+#endif
+            return false;
+        }
+
+        private static bool CheckLegacyGUIInput(Rect region, string text, float currentTime)
+        {
+            if (GUI.Button(region, text) && currentTime - lastButtonClickTime >= buttonClickCooldown)
+            {
+                lastButtonClickTime = currentTime;
+                return true;
+            }
+            return false;
+        }
+
+#if UNITY_EDITOR
+        private static bool CheckMouseInput(Rect region, float currentTime)
+        {
             if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
             {
                 Vector2 mousePos = Mouse.current.position.ReadValue();
-                mousePos.y = Screen.height - mousePos.y; // Flip Y for GUI coordinates
+                mousePos.y = Screen.height - mousePos.y; // Flip Y
 
                 Rect screenRect = GUIUtility.GUIToScreenRect(region);
-                
                 if (screenRect.Contains(mousePos) && currentTime - lastButtonClickTime >= buttonClickCooldown)
                 {
-                    pressed = true;
                     lastButtonClickTime = currentTime;
+                    return true;
                 }
             }
+            return false;
+        }
 
-            // Method 3: New Input System Touch (Simulator / Device)
+        private static bool CheckTouchInput(Rect region, float currentTime)
+        {
             if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasPressedThisFrame)
             {
                 Vector2 touchPos = Touchscreen.current.primaryTouch.position.ReadValue();
-                touchPos.y = Screen.height - touchPos.y; // Flip Y for GUI coordinates
+                touchPos.y = Screen.height - touchPos.y; // Flip Y
 
                 Rect screenRect = GUIUtility.GUIToScreenRect(region);
-                
                 if (screenRect.Contains(touchPos) && currentTime - lastButtonClickTime >= buttonClickCooldown)
                 {
-                    pressed = true;
                     lastButtonClickTime = currentTime;
+                    return true;
                 }
             }
-#endif
-
-            return pressed;
+            return false;
         }
+#endif
 
         // Redoing DrawButton to be cleaner without helper splitting that complicates drawing
         // (GUI.Button must be called exactly once per layout/repaint event)
@@ -196,35 +211,6 @@ namespace Core.Utils
             GUI.skin.textArea.normal.textColor = originalTextColor;
 
             return result;
-        }
-
-        /// <summary>
-        /// Draws a scrollable log view with custom styling.
-        /// </summary>
-        public static void DrawLogText(Rect region, string text, ref Vector2 scrollPosition)
-        {
-            int originalFontSize = GUI.skin.label.fontSize;
-            GUI.skin.label.fontSize = 14;
-            GUI.skin.label.wordWrap = true;
-
-            GUIStyle logStyle = new GUIStyle(GUI.skin.label)
-            {
-                alignment = TextAnchor.UpperLeft,
-                wordWrap = true,
-                fontSize = 14
-            };
-
-            GUIContent content = new GUIContent(text);
-            float height = logStyle.CalcHeight(content, region.width - 20);
-
-            scrollPosition = GUI.BeginScrollView(region, scrollPosition,
-                new Rect(0, 0, region.width - 20, height));
-
-            GUI.Label(new Rect(0, 0, region.width - 20, height), text, logStyle);
-
-            GUI.EndScrollView();
-
-            GUI.skin.label.fontSize = originalFontSize;
         }
     }
 }

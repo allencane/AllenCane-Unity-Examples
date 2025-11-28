@@ -203,59 +203,64 @@ namespace Core.Utils
         {
             GUIHelpers.DrawBox(region, new Color(0, 0, 0, 1.0f));
 
-            int baseIndent = 10;
-            int folderIndent = 25;
-
-            // Scale button height based on screen height
-            int buttonHeight = Mathf.Max(70, (int)(Screen.height * 0.08f));
-            int buttonSpacingY = 5;
-
             // Build flat list of visible nodes
             List<DrawNode> nodes = new List<DrawNode>();
             BuildDrawNodes(this, 0, ref nodes);
 
-            // Handle touch scrolling
+            // Layout calculations
+            int buttonHeight = Mathf.Max(70, (int)(Screen.height * 0.08f));
+            int buttonSpacingY = 5;
+            float contentHeight = (buttonHeight + buttonSpacingY) * nodes.Count;
+
+            // Handle scrolling
             scrollPosition = GUIHelpers.UpdateScrollForTouchDrag(region, scrollPosition);
 
-            // Begin scroll view
-            float contentHeight = (buttonHeight + buttonSpacingY) * nodes.Count;
+            // Draw scrollable content
+            DrawScrollableCommandList(region, nodes, buttonHeight, buttonSpacingY, contentHeight);
+        }
+
+        private void DrawScrollableCommandList(Rect region, List<DrawNode> nodes, int buttonHeight, int buttonSpacingY, float contentHeight)
+        {
+            int baseIndent = 10;
+
             scrollPosition = GUI.BeginScrollView(region, scrollPosition,
                 new Rect(0, 0, region.width - baseIndent, contentHeight),
                 GUIStyle.none, GUI.skin.verticalScrollbar);
 
-            // Draw each command button
             int yPos = 0;
             foreach (DrawNode node in nodes)
             {
-                int currentIndent = node.Depth * folderIndent + baseIndent;
-                string text = node.Command.GetDisplayText();
-
-                Color drawColor = node.Command.GetDrawColor();
-
-                // Override color for nested items (Folders and Simple Commands) at Depth > 0
-                if (node.Depth > 0)
-                {
-                    // Make all nested content Blue to distinguish from Root Green Headers
-                    if (node.Command is DebugCommandFolder || node.Command is DebugCommand)
-                    {
-                        drawColor = new Color(0.2f, 0.6f, 0.9f, 1.0f); // Unified Blue for content
-                    }
-                }
-
-                bool pressed = GUIHelpers.DrawButton(
-                    drawColor,
-                    new Rect(currentIndent, yPos, region.width - baseIndent - currentIndent, buttonHeight),
-                    text);
-
-                if (pressed)
-                {
-                    node.Command.DoCommand();
-                }
-
+                DrawSingleCommand(node, region.width, yPos, buttonHeight, baseIndent);
                 yPos += buttonHeight + buttonSpacingY;
             }
 
             GUI.EndScrollView();
+        }
+
+        private void DrawSingleCommand(DrawNode node, float availableWidth, int yPos, int height, int baseIndent)
+        {
+            int folderIndent = 25;
+            int currentIndent = node.Depth * folderIndent + baseIndent;
+
+            Color drawColor = GetCommandColor(node);
+            Rect buttonRect = new Rect(currentIndent, yPos, availableWidth - baseIndent - currentIndent, height);
+
+            if (GUIHelpers.DrawButton(drawColor, buttonRect, node.Command.GetDisplayText()))
+            {
+                node.Command.DoCommand();
+            }
+        }
+
+        private Color GetCommandColor(DrawNode node)
+        {
+            Color color = node.Command.GetDrawColor();
+
+            // Override color for nested items (Depth > 0) to distinct Blue
+            if (node.Depth > 0 && (node.Command is DebugCommandFolder || node.Command is DebugCommand))
+            {
+                return new Color(0.2f, 0.6f, 0.9f, 1.0f);
+            }
+            return color;
         }
 
         /// <summary>

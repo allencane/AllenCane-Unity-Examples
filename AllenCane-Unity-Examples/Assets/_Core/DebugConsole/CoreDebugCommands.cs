@@ -24,12 +24,16 @@ namespace Core.Examples
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoInitialize()
         {
-            // Check if already exists (e.g. from manual scene placement)
-            if (FindObjectOfType<CoreDebugCommands>()) return;
-
-            GameObject go = new GameObject("CoreDebugCommands");
-            go.AddComponent<CoreDebugCommands>();
-            DontDestroyOnLoad(go);
+            // Ensure DebugConsoleManager is ready, then attach this component to it
+            // to keep the hierarchy clean (one GameObject).
+            if (DebugConsoleManager.Instance != null)
+            {
+                var managerGO = DebugConsoleManager.Instance.gameObject;
+                if (managerGO.GetComponent<CoreDebugCommands>() == null)
+                {
+                    managerGO.AddComponent<CoreDebugCommands>();
+                }
+            }
         }
 
         void Start()

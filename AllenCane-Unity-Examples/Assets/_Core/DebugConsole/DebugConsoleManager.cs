@@ -45,6 +45,7 @@ namespace Core.Utils
         // UI state
         private bool isVisible = false;
         private bool commandsCollapsed = false;
+        private bool consoleInputVisible = false; // Defaults to hidden
         private int commandsRegionWidth = 600;
 
         // Input actions
@@ -122,6 +123,17 @@ namespace Core.Utils
             LogViewer.AddLine("Main", "Debug Console initialized. Press [ + ] or ~ to toggle.");
         }
 
+        void Start()
+        {
+            // Cleanup hierarchy: Move [Debug Updater] to this object if it exists
+            // We do this in Start because it might be created after Awake
+            var inputDebugUpdater = GameObject.Find("[Debug Updater]");
+            if (inputDebugUpdater != null)
+            {
+                inputDebugUpdater.transform.SetParent(this.transform);
+            }
+        }
+
         void OnDestroy()
         {
             // Cleanup input actions
@@ -143,6 +155,12 @@ namespace Core.Utils
         /// Setup the Unity Input System actions.
         /// </summary>
         private void SetupInputSystem()
+        {
+            SetupKeyboardActions();
+            SetupTouchActions();
+        }
+
+        private void SetupKeyboardActions()
         {
             // Left bracket
             bracketLeftAction = new InputAction();
@@ -167,7 +185,10 @@ namespace Core.Utils
             escapeAction.AddBinding("<Keyboard>/escape");
             escapeAction.performed += _ => { if (isVisible) ToggleVisibility(); };
             escapeAction.Enable();
+        }
 
+        private void SetupTouchActions()
+        {
             // Four finger touch
             fourFingerTouchAction = new InputAction(type: InputActionType.PassThrough);
             fourFingerTouchAction.AddBinding("<Touchscreen>/touch*/position");
@@ -239,37 +260,21 @@ namespace Core.Utils
         /// </summary>
         private void UpdateCornerTouchDetection()
         {
-            TouchControl touch = Touchscreen.current?.primaryTouch;
-
-            if (touch == null ||
-                touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.None ||
-                touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Ended ||
-                touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Canceled)
+            if (!TryGetValidTouch(out TouchControl touch))
             {
-                lastTouched = false;
-                touchedInCheatSpot = false;
+                ResetCornerTouch();
                 return;
             }
 
-            Vector2 touchPosition = touch.position.ReadValue();
-            bool isInCheatSpot = (touchPosition.x < CheatSpotSize &&
-                                  (touchPosition.y < CheatSpotSize ||
-                                   Screen.height - touchPosition.y < CheatSpotSize));
+            bool isInCheatSpot = IsTouchInCorner(touch.position.ReadValue());
 
             if (!lastTouched)
             {
-                touchedInCheatSpot = isInCheatSpot;
-                touchedInCheatSpotStartTime = Time.time;
+                StartCornerTouch(isInCheatSpot);
             }
             else if (isInCheatSpot)
             {
-                if (touchedInCheatSpot &&
-                    (Time.time - touchedInCheatSpotStartTime >= CheatSpotTriggerSeconds))
-                {
-                    touchedInCheatSpot = false;
-                    LogViewer.AddLine("Main", "Corner hold detected - toggling console");
-                    ToggleVisibility();
-                }
+                CheckCornerTouchDuration();
             }
             else
             {
@@ -277,6 +282,50 @@ namespace Core.Utils
             }
 
             lastTouched = true;
+        }
+
+        private bool TryGetValidTouch(out TouchControl touch)
+        {
+            touch = Touchscreen.current?.primaryTouch;
+
+            if (touch == null ||
+                touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.None ||
+                touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Ended ||
+                touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Canceled)
+            {
+                return false;
+            }
+            return true;
+        }
+
+        private void ResetCornerTouch()
+        {
+            lastTouched = false;
+            touchedInCheatSpot = false;
+        }
+
+        private bool IsTouchInCorner(Vector2 touchPosition)
+        {
+            return (touchPosition.x < CheatSpotSize &&
+                   (touchPosition.y < CheatSpotSize ||
+                    Screen.height - touchPosition.y < CheatSpotSize));
+        }
+
+        private void StartCornerTouch(bool isInCheatSpot)
+        {
+            touchedInCheatSpot = isInCheatSpot;
+            touchedInCheatSpotStartTime = Time.time;
+        }
+
+        private void CheckCornerTouchDuration()
+        {
+            if (touchedInCheatSpot &&
+                (Time.time - touchedInCheatSpotStartTime >= CheatSpotTriggerSeconds))
+            {
+                touchedInCheatSpot = false;
+                LogViewer.AddLine("Main", "Corner hold detected - toggling console");
+                ToggleVisibility();
+            }
         }
 
         #endregion
@@ -315,17 +364,20 @@ namespace Core.Utils
                 ? Screen.width
                 : (Screen.width - commandsRegionWidth);
 
-            consoleHeight = Mathf.Max(100, (int)(Screen.height * 0.1f));
+            consoleHeight = consoleInputVisible ? Mathf.Max(100, (int)(Screen.height * 0.1f)) : 0;
             safeAreaTop = Screen.safeArea.y;
             safeAreaHeight = Screen.safeArea.height;
         }
 
         private void DrawConsoleInput(float safeAreaTop, float safeAreaHeight, int consoleHeight)
         {
-            if (ConsoleWindow.DrawConsole(
-                new Rect(0, safeAreaTop + safeAreaHeight - consoleHeight, Screen.width, consoleHeight)))
+            if (consoleInputVisible && consoleHeight > 0)
             {
-                ToggleVisibility();
+                if (ConsoleWindow.DrawConsole(
+                    new Rect(0, safeAreaTop + safeAreaHeight - consoleHeight, Screen.width, consoleHeight)))
+                {
+                    ToggleVisibility();
+                }
             }
         }
 
@@ -371,6 +423,17 @@ namespace Core.Utils
                     "Copy"))
                 {
                     LogViewer.CopyToClipboard();
+                }
+            }
+
+            // Console Input Toggle (when expanded)
+            if (!commandsCollapsed)
+            {
+                if (GUIHelpers.DrawButton(buttonColor,
+                    new Rect(horizontalIntersection - 70, safeAreaTop + 120, 67, 100),
+                    consoleInputVisible ? "Hide\nCmd" : "Show\nCmd"))
+                {
+                    consoleInputVisible = !consoleInputVisible;
                 }
             }
         }

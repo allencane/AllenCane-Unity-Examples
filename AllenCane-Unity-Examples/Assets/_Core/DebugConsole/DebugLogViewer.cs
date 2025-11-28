@@ -174,30 +174,38 @@ namespace Core.Utils
 
             if (string.IsNullOrEmpty(logText))
             {
-                // Show placeholder text
-                GUI.Label(region, "No log entries yet.", new GUIStyle(GUI.skin.label)
-                {
-                    alignment = TextAnchor.MiddleCenter,
-                    fontSize = 16,
-                    normal = { textColor = Color.gray }
-                });
+                DrawEmptyLogPlaceholder(region);
                 return;
             }
 
+            DrawScrollableLogText(region, logText);
+        }
+
+        private void DrawEmptyLogPlaceholder(Rect region)
+        {
+            GUI.Label(region, "No log entries yet.", new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 16,
+                normal = { textColor = Color.gray }
+            });
+        }
+
+        private void DrawScrollableLogText(Rect region, string logText)
+        {
             // Calculate responsive font size (approx 2% of screen height, min 14)
             int fontSize = Mathf.Max(14, (int)(Screen.height * 0.02f));
 
-            // Use custom log drawing helper
             GUIStyle logStyle = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.UpperLeft,
-                wordWrap = true, // Enable wrapping to prevent clipping
+                wordWrap = true,
                 fontSize = fontSize,
                 normal = { textColor = new Color(0.8f, 0.9f, 1.0f, 1.0f) },
                 richText = true
             };
 
-            // Constrain text width to avoid overlapping side buttons (approx 90px)
+            // Constrain text width to avoid overlapping side buttons
             float textWidth = region.width - 90;
             GUIContent content = new GUIContent(logText);
             float contentHeight = logStyle.CalcHeight(content, textWidth);
