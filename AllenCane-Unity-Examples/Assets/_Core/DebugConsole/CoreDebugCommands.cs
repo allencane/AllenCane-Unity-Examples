@@ -29,9 +29,17 @@ namespace Core.Examples
             if (DebugConsoleManager.Instance != null)
             {
                 var managerGO = DebugConsoleManager.Instance.gameObject;
+
+                // Attach CoreDebugCommands if missing
                 if (managerGO.GetComponent<CoreDebugCommands>() == null)
                 {
                     managerGO.AddComponent<CoreDebugCommands>();
+                }
+
+                // Attach AzureServiceTester if missing (Auto-wire up the Azure tests)
+                if (managerGO.GetComponent<AzureServiceTester>() == null)
+                {
+                    managerGO.AddComponent<AzureServiceTester>();
                 }
             }
         }
@@ -113,15 +121,6 @@ namespace Core.Examples
                     commands.AddValueCycleLabeled("Volume",
                         new string[] { "0%", "25%", "50%", "75%", "100%" },
                         (i) => AudioListener.volume = i * 0.25f);
-                }
-                commands.EndFolder();
-
-                // Azure sub-folder
-                commands.StartFolder("Azure");
-                {
-                    commands.AddSimpleCommand("Test Connection", () => DebugConsoleManager.Log("Azure", "Testing connection..."));
-                    commands.AddSimpleCommand("Sync Data", () => DebugConsoleManager.Log("Azure", "Sync started..."));
-                    commands.AddInfo("Status", () => "Disconnected");
                 }
                 commands.EndFolder();
 
