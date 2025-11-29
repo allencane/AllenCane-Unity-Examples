@@ -16,5 +16,22 @@ namespace Core.Services.Azure
         public bool success;
         public string message;
     }
-}
 
+    // --- AUTH MODELS ---
+
+    [Serializable]
+    public class AuthRequest
+    {
+        public string username;
+        public string password;
+    }
+
+    [Serializable]
+    public class AuthResponse
+    {
+        public bool success;
+        public string message;
+        public string playerId;
+        public string token; // Optional, for Login
+    }
+}
