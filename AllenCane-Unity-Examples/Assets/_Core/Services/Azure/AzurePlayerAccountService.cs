@@ -9,10 +9,12 @@ namespace Core.Services.Azure
     public class AzurePlayerAccountService : IPlayerAccountService
     {
         private readonly string _baseUrl;
+        private readonly string _apiKey;
 
-        public AzurePlayerAccountService(string baseUrl)
+        public AzurePlayerAccountService(string baseUrl, string apiKey)
         {
             _baseUrl = baseUrl.TrimEnd('/');
+            _apiKey = apiKey;
         }
 
         public async Task<(bool success, string message)> SavePlayerAccount(string playerId, int coins, int level, int xp)
@@ -34,6 +36,11 @@ namespace Core.Services.Azure
                 request.uploadHandler = new UploadHandlerRaw(bodyRaw);
                 request.downloadHandler = new DownloadHandlerBuffer();
                 request.SetRequestHeader("Content-Type", "application/json");
+
+                if (!string.IsNullOrEmpty(_apiKey))
+                {
+                    request.SetRequestHeader("x-functions-key", _apiKey);
+                }
 
                 // Send request and wait
                 var operation = request.SendWebRequest();
@@ -57,10 +64,39 @@ namespace Core.Services.Azure
                 }
                 else
                 {
-                    return (false, $"Network Error: {request.error}");
+                    return (false, $"Network Error: {request.error} (Code: {request.responseCode})");
+                }
+            }
+        }
+
+        public async Task<(bool success, string data)> GetPlayerAccount(string playerId)
+        {
+            string url = $"{_baseUrl}/api/v1/players/{playerId}/account";
+
+            using (UnityWebRequest request = UnityWebRequest.Get(url))
+            {
+                if (!string.IsNullOrEmpty(_apiKey))
+                {
+                    request.SetRequestHeader("x-functions-key", _apiKey);
+                }
+
+                // Send request and wait
+                var operation = request.SendWebRequest();
+
+                while (!operation.isDone)
+                {
+                    await Task.Yield();
+                }
+
+                if (request.result == UnityWebRequest.Result.Success)
+                {
+                    return (true, request.downloadHandler.text);
+                }
+                else
+                {
+                    return (false, $"Network Error: {request.error} (Code: {request.responseCode})");
                 }
             }
         }
     }
 }
-

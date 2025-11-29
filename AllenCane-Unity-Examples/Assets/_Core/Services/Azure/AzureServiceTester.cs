@@ -5,7 +5,8 @@ using Core.Utils; // For DebugConsoleManager
 
 public class AzureServiceTester : MonoBehaviour
 {
-    [SerializeField] private string serviceUrl = "http://localhost:7071";
+    [SerializeField] private string serviceUrl = "https://allencane-coregame-gameapi-func.azurewebsites.net";
+    [SerializeField] private string apiKey = "3TbsOrkSEWQGPfT3xZopob_3yt8PCkW37Ca71MJb8PsWAzFuY-sjHQ==";
     [SerializeField] private string playerId = "unity-test-user";
     [SerializeField] private int coins = 500;
     [SerializeField] private int level = 10;
@@ -16,7 +17,7 @@ public class AzureServiceTester : MonoBehaviour
     private void Awake()
     {
         // DI MOCK: In a real game, this would be injected by Zenject/VContainer
-        _accountService = new AzurePlayerAccountService(serviceUrl);
+        _accountService = new AzurePlayerAccountService(serviceUrl, apiKey);
     }
 
     private void Start()
@@ -36,13 +37,25 @@ public class AzureServiceTester : MonoBehaviour
             commands.AddSimpleCommand("Save Current Config", async () =>
             {
                 DebugConsoleManager.Log("Azure", $"Saving account for {playerId}...");
-                
+
                 var (success, message) = await _accountService.SavePlayerAccount(playerId, coins, level, xp);
-                
+
                 if (success)
                     DebugConsoleManager.Log("Azure", $"<color=green>SUCCESS:</color> {message}");
                 else
                     DebugConsoleManager.Log("Azure", $"<color=red>FAILED:</color> {message}");
+            });
+
+            commands.AddSimpleCommand("Load Current Config", async () =>
+            {
+                DebugConsoleManager.Log("Azure", $"Loading account for {playerId}...");
+
+                var (success, data) = await _accountService.GetPlayerAccount(playerId);
+
+                if (success)
+                    DebugConsoleManager.Log("Azure", $"<color=green>LOADED:</color> {data}");
+                else
+                    DebugConsoleManager.Log("Azure", $"<color=red>FAILED:</color> {data}");
             });
 
             commands.AddSimpleCommand("Ping Localhost", async () =>
@@ -52,7 +65,7 @@ public class AzureServiceTester : MonoBehaviour
                 var (success, message) = await _accountService.SavePlayerAccount("ping_user", 0, 0, 0);
                 DebugConsoleManager.Log("Azure", success ? "Pong! (Connection OK)" : "No Ping (Connection Failed)");
             });
-            
+
             // Add info display to show current target
             commands.AddInfo("Target URL", () => serviceUrl);
         }

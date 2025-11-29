@@ -435,6 +435,14 @@ namespace Core.Utils
                 {
                     consoleInputVisible = !consoleInputVisible;
                 }
+
+                // Copy Button (below Cmd toggle)
+                if (GUIHelpers.DrawButton(buttonColor,
+                    new Rect(horizontalIntersection - 70, safeAreaTop + 230, 67, 100),
+                    "Copy"))
+                {
+                    LogViewer.CopyToClipboard();
+                }
             }
         }
 
