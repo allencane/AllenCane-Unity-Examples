@@ -76,9 +76,9 @@ namespace Core.Services.Azure
 
             var requestData = new PlayerAccountRequest
             {
-                coins = coins,
-                level = level,
-                xp = xp
+                Coins = coins,
+                PlayerLevel = level,
+                ExperiencePoints = xp
             };
 
             string jsonBody = JsonUtility.ToJson(requestData);

@@ -200,15 +200,21 @@ namespace Core.Utils
         {
             int originalFontSize = GUI.skin.textArea.fontSize;
             Color originalTextColor = GUI.skin.textArea.normal.textColor;
+            TextAnchor originalAlignment = GUI.skin.textArea.alignment;
 
-            GUI.skin.textArea.fontSize = Mathf.Max(16, (int)(region.height * 0.5f));
+            // Fix: Reduce font size ratio to prevent clipping (0.5f -> 0.35f)
+            GUI.skin.textArea.fontSize = Mathf.Max(14, (int)(region.height * 0.35f));
             GUI.skin.textArea.normal.textColor = new Color(0.6f, 0.75f, 0.95f, 1);
             GUI.skin.textArea.focused.textColor = new Color(0.95f, 0.95f, 1, 1);
+
+            // Force alignment to Middle Left to ensure text is vertically centered
+            GUI.skin.textArea.alignment = TextAnchor.MiddleLeft;
 
             string result = GUI.TextArea(region, text);
 
             GUI.skin.textArea.fontSize = originalFontSize;
             GUI.skin.textArea.normal.textColor = originalTextColor;
+            GUI.skin.textArea.alignment = originalAlignment;
 
             return result;
         }

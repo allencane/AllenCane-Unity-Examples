@@ -5,9 +5,10 @@ namespace Core.Services.Azure
     [Serializable]
     public class PlayerAccountRequest
     {
-        public int coins;
-        public int level;
-        public int xp;
+        // Use standard naming conventions from Match_GO
+        public int PlayerLevel;
+        public int ExperiencePoints;
+        public int Coins; // Or WalletJson if we want to be advanced later
     }
 
     [Serializable]
@@ -32,6 +33,6 @@ namespace Core.Services.Azure
         public bool success;
         public string message;
         public string playerId;
-        public string token; // Optional, for Login
+        public string token;
     }
 }
