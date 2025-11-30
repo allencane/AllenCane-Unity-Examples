@@ -161,10 +161,9 @@ public class AzureServiceTester : MonoBehaviour
                     xp = _playerData.Get("ExperiencePoints", 0);
 
                     DebugConsoleManager.Log("Azure", "<color=green>LOADED (DICT)</color>");
-                    foreach (var kvp in data)
-                    {
-                        DebugConsoleManager.Log("Data", $"{kvp.Key}: {kvp.Value}");
-                    }
+                    DebugConsoleManager.Log("Data", "--- Full Dictionary Contents ---");
+                    DebugConsoleManager.Log("Data", _playerData.ToDebugString().Replace(", ", "\n"));
+                    DebugConsoleManager.Log("Data", "--------------------------------");
                 }
                 else
                 {
@@ -331,10 +330,120 @@ public class AzureServiceTester : MonoBehaviour
             TryApplyTestValue(setOnly: false);
         }
 
+        GUILayout.Space(5);
+
+        if (GUILayout.Button("Delete Key (Cloud)", GUILayout.Height(fieldHeight * 1.2f)))
+        {
+            // Trigger deletion of the currently entered key
+            DeleteCurrentKey();
+        }
+
+        GUILayout.Space(5);
+
+        if (GUILayout.Button("Delete All Data (Cloud)", GUILayout.Height(fieldHeight * 1.2f)))
+        {
+            DeleteAllData();
+        }
+
         GUILayout.Space(10);
         GUILayout.EndVertical();
 
         GUI.DragWindow();
+    }
+
+    private async void DeleteAllData()
+    {
+        DebugConsoleManager.Log("Azure", "Syncing before wipe...");
+
+        // 1. Load first to ensure we know about ALL cloud keys
+        var (loadSuccess, data) = await _dataSyncService.LoadAsync(_activePlayerId, _sessionToken);
+        if (loadSuccess && data != null)
+        {
+            _playerData.ApplyCloudLoad(data);
+        }
+        else
+        {
+            DebugConsoleManager.Log("Azure", "<color=yellow>Load failed/empty. Attempting delete of local-only keys...</color>");
+        }
+
+        DebugConsoleManager.Log("Azure", "Attempting to delete ALL keys from Cloud...");
+
+        var allKeys = _playerData.GetAllKeys();
+        if (allKeys.Count == 0)
+        {
+            DebugConsoleManager.Log("Azure", "Dictionary is empty. Nothing to delete.");
+            return;
+        }
+
+        var (success, message) = await _dataSyncService.DeleteKeysAsync(_activePlayerId, allKeys, _sessionToken);
+
+        if (success)
+        {
+            DebugConsoleManager.Log("Azure", $"<color=green>WIPED:</color> {message}");
+
+            // Reset local to defaults
+            _playerData = new PlayerData();
+            coins = 0;
+            level = 1;
+            xp = 0;
+            DebugConsoleManager.Log("Azure", "Local data reset to defaults.");
+
+            // Immediately push default stats back to the cloud so a Load sees 0/1/0 instead of missing row
+            var defaults = new Dictionary<string, object>
+            {
+                // New dictionary-based keys
+                { "Coins", coins },
+                { "PlayerLevel", level },
+                { "ExperiencePoints", xp },
+
+                // Legacy static keys so old columns (coins/level/xp) are also reset
+                { "coins", coins },
+                { "level", level },
+                { "xp", xp }
+            };
+
+            DebugConsoleManager.Log("Azure", "Recreating default stats on cloud after wipe...");
+            var (saveSuccess, saveMessage) = await _dataSyncService.SaveAsync(_activePlayerId, defaults, _sessionToken);
+
+            if (saveSuccess)
+            {
+                _playerData.CommitChanges();
+                DebugConsoleManager.Log("Azure", "<color=green>DEFAULT STATS SAVED:</color> " + saveMessage);
+            }
+            else
+            {
+                DebugConsoleManager.Log("Azure", "<color=red>FAILED to save default stats after wipe:</color> " + saveMessage);
+            }
+        }
+        else
+        {
+            DebugConsoleManager.Log("Azure", $"<color=red>WIPE FAILED:</color> {message}");
+        }
+    }
+
+    private async void DeleteCurrentKey()
+    {
+        if (string.IsNullOrEmpty(_testKey))
+        {
+            DebugConsoleManager.Log("Azure", "<color=red>Error:</color> Key cannot be empty.");
+            return;
+        }
+
+        DebugConsoleManager.Log("Azure", $"Attempting to delete key '{_testKey}' from Cloud...");
+
+        var keysToDelete = new List<string> { _testKey };
+        var (success, message) = await _dataSyncService.DeleteKeysAsync(_activePlayerId, keysToDelete, _sessionToken);
+
+        if (success)
+        {
+            DebugConsoleManager.Log("Azure", $"<color=green>DELETED:</color> {message}");
+            // Optionally clear it locally too? 
+            // For now, we just delete from cloud. To sync, user should Load.
+        }
+        else
+        {
+            DebugConsoleManager.Log("Azure", $"<color=red>DELETE FAILED:</color> {message}");
+        }
     }
 
     private void TryApplyTestValue(bool setOnly)

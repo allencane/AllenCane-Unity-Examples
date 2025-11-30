@@ -93,6 +93,41 @@ namespace Core.Services.Azure
                 return (false, null);
             }
         }
+        public async Task<(bool success, string message)> DeleteKeysAsync(string playerId, List<string> keysToDelete, string token = null)
+        {
+            if (keysToDelete == null || keysToDelete.Count == 0)
+            {
+                return (true, "No keys to delete.");
+            }
+
+            string url = $"{_baseUrl}/api/v1/players/{playerId}/account/delete";
+            string jsonBody = JsonConvert.SerializeObject(keysToDelete);
+
+            using (UnityWebRequest request = new UnityWebRequest(url, "POST"))
+            {
+                byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonBody);
+                request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+                request.downloadHandler = new DownloadHandlerBuffer();
+                request.SetRequestHeader("Content-Type", "application/json");
+
+                if (!string.IsNullOrEmpty(_apiKey))
+                    request.SetRequestHeader("x-functions-key", _apiKey);
+
+                if (!string.IsNullOrEmpty(token))
+                    request.SetRequestHeader("X-Session-Token", token);
+
+                var op = request.SendWebRequest();
+                while (!op.isDone) await Task.Yield();
+
+                if (request.result == UnityWebRequest.Result.Success)
+                {
+                    return (true, "Deleted keys successfully.");
+                }
+
+                Debug.LogError($"[AzurePlayerDataSyncService] Delete failed: {request.error} (Code: {request.responseCode})");
+                return (false, $"Network Error: {request.error} (Code: {request.responseCode})");
+            }
+        }
     }
 }
 

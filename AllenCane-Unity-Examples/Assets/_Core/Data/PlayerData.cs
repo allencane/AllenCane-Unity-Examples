@@ -49,6 +49,28 @@ namespace Core.Data
 
         public void Set<T>(string key, T value)
         {
+            if (string.IsNullOrEmpty(key))
+            {
+                Debug.LogError("PlayerData: Attempted to set null or empty key.");
+                return;
+            }
+
+            // Azure Table Storage Validation
+            if (char.IsDigit(key[0]))
+            {
+                Debug.LogError($"PlayerData: Invalid key '{key}'. Keys cannot start with a number (Azure limitation).");
+                return;
+            }
+
+            foreach (char c in key)
+            {
+                if (!char.IsLetterOrDigit(c) && c != '_')
+                {
+                    Debug.LogError($"PlayerData: Invalid key '{key}'. Keys must contain only letters, numbers, or underscores.");
+                    return;
+                }
+            }
+
             _data[key] = value;
         }
 
@@ -56,6 +78,7 @@ namespace Core.Data
 
         /// <summary>
         /// Returns only the Key-Values that have changed since the last save.
+        /// Automatically filters out keys that would be rejected by Azure Table Storage.
         /// </summary>
         public Dictionary<string, object> GetChanges()
         {
@@ -66,6 +89,14 @@ namespace Core.Data
                 string key = kvp.Key;
                 object currentVal = kvp.Value;
 
+                // 1. Filter invalid Azure Table Storage keys (Prevents 400 Bad Request blocks)
+                if (!IsValidAzureKey(key))
+                {
+                    Debug.LogWarning($"PlayerData: Skipping invalid key '{key}' during sync.");
+                    continue;
+                }
+
+                // 2. Check for actual changes
                 if (!_lastSavedState.ContainsKey(key) || !ValuesAreEqual(_lastSavedState[key], currentVal))
                 {
                     changes[key] = currentVal;
@@ -73,6 +104,18 @@ namespace Core.Data
             }
 
             return changes;
+        }
+
+        private bool IsValidAzureKey(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return false;
+            if (char.IsDigit(key[0])) return false; // Cannot start with number
+
+            foreach (char c in key)
+            {
+                if (!char.IsLetterOrDigit(c) && c != '_') return false; // Only Alphanumeric + Underscore
+            }
+            return true;
         }
 
         /// <summary>
@@ -100,6 +143,11 @@ namespace Core.Data
             if (a == null && b == null) return true;
             if (a == null || b == null) return false;
             return a.ToString() == b.ToString();
+        }
+
+        public List<string> GetAllKeys()
+        {
+            return _data.Keys.ToList();
         }
 
         public string ToDebugString()
