@@ -84,22 +84,18 @@ namespace Core.Utils
         }
 
         /// <summary>
-        /// Checks for button press using Legacy GUI, Mouse (New Input), and Touch (New Input).
+        /// Checks for button press. We rely solely on the IMGUI button event to avoid double-firing
+        /// when both legacy GUI and the new Input System are active (press + release).
         /// </summary>
         private static bool CheckButtonInput(Rect region, string text)
         {
             float currentTime = Time.time;
 
-            // Method 1: Standard GUI.Button
+            // Standard GUI.Button (IMGUI) only.
+            // We intentionally do NOT mix in Mouse/Touch checks here, because that can cause
+            // a single click (mouse down + up) to be counted twice in the Editor.
             if (CheckLegacyGUIInput(region, text, currentTime)) return true;
 
-#if UNITY_EDITOR
-            // Method 2: New Input System Mouse
-            if (CheckMouseInput(region, currentTime)) return true;
-
-            // Method 3: New Input System Touch
-            if (CheckTouchInput(region, currentTime)) return true;
-#endif
             return false;
         }
 
@@ -200,15 +196,21 @@ namespace Core.Utils
         {
             int originalFontSize = GUI.skin.textArea.fontSize;
             Color originalTextColor = GUI.skin.textArea.normal.textColor;
+            TextAnchor originalAlignment = GUI.skin.textArea.alignment;
 
-            GUI.skin.textArea.fontSize = Mathf.Max(16, (int)(region.height * 0.5f));
+            // Fix: Reduce font size ratio to prevent clipping (0.5f -> 0.35f)
+            GUI.skin.textArea.fontSize = Mathf.Max(14, (int)(region.height * 0.35f));
             GUI.skin.textArea.normal.textColor = new Color(0.6f, 0.75f, 0.95f, 1);
             GUI.skin.textArea.focused.textColor = new Color(0.95f, 0.95f, 1, 1);
+
+            // Force alignment to Middle Left to ensure text is vertically centered
+            GUI.skin.textArea.alignment = TextAnchor.MiddleLeft;
 
             string result = GUI.TextArea(region, text);
 
             GUI.skin.textArea.fontSize = originalFontSize;
             GUI.skin.textArea.normal.textColor = originalTextColor;
+            GUI.skin.textArea.alignment = originalAlignment;
 
             return result;
         }
