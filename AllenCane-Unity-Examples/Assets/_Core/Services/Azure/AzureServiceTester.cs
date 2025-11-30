@@ -37,7 +37,7 @@ public class AzureServiceTester : MonoBehaviour
     private bool _showDataUI = false;
     private Rect _dataWindowRect;
 
-    private enum TestValueType { Int, Bool, String }
+    private enum TestValueType { Int, Bool, String, Float }
     private TestValueType _testValueType = TestValueType.Int;
     private string _testKey = "TestKey";
     private string _testValue = "123";
@@ -303,7 +303,8 @@ public class AzureServiceTester : MonoBehaviour
         // Type Row
         GUILayout.BeginHorizontal();
         GUILayout.Label("Type:", GUILayout.Width(labelWidth));
-        var types = new[] { "Int", "Bool", "String" };
+        var types = new[] { "Int", "Bool", "String", "Float" };
+        // Note: Toolbar uses 'button' style by default in some Unity versions, but let's be safe
         _testValueType = (TestValueType)GUILayout.Toolbar((int)_testValueType, types, GUILayout.Height(fieldHeight));
         GUILayout.EndHorizontal();
 
@@ -351,6 +352,9 @@ public class AzureServiceTester : MonoBehaviour
                     break;
                 case TestValueType.String:
                     parsed = _testValue;
+                    break;
+                case TestValueType.Float:
+                    parsed = float.Parse(_testValue);
                     break;
             }
 
