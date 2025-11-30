@@ -218,10 +218,14 @@ public class AzureServiceTester : MonoBehaviour
         if (_showDataUI)
         {
             // Place data window slightly lower to avoid overlapping header text
+            // UPDATE: Increased height to 1.3x to fit stacked buttons and prevent cutoff
+            float dataHeight = height * 1.3f;
             float dataX = margin;
-            float dataY = (Screen.height - height) / 2f + height * 0.55f;
+            // Center vertically to ensure it stays on screen
+            float dataY = (Screen.height - dataHeight) / 2f;
+
             if (_dataWindowRect.width < 1)
-                _dataWindowRect = new Rect(dataX, dataY, width, height * 0.75f);
+                _dataWindowRect = new Rect(dataX, dataY, width, dataHeight);
 
             _dataWindowRect = GUI.Window(1002, _dataWindowRect, DrawDataWindow, "Dictionary Tester");
         }
@@ -237,11 +241,12 @@ public class AzureServiceTester : MonoBehaviour
         GUI.skin.button.fontSize = fontSize;
 
         // 2. Calculate layout dimensions based on this font size
-        float labelWidth = fontSize * 5f; // Increased width allowance
-        float fieldHeight = fontSize * 2.0f; // Increased height for touch friendliness
+        float labelWidth = fontSize * 3.5f; // Reduced width to save space
+        float fieldHeight = fontSize * 2.0f;
+        float titlePadding = fontSize * 1.5f;
 
         GUILayout.BeginVertical();
-        GUILayout.Space(15);
+        GUILayout.Space(titlePadding);
 
         // User Row
         GUILayout.BeginHorizontal();
@@ -280,11 +285,12 @@ public class AzureServiceTester : MonoBehaviour
         GUI.skin.button.fontSize = fontSize;
 
         // 2. Calculate layout dimensions based on this font size
-        float labelWidth = fontSize * 5f; // Increased width allowance
-        float fieldHeight = fontSize * 2.0f; // Increased height for touch friendliness
+        float labelWidth = fontSize * 3.5f; // Reduced width to save space
+        float fieldHeight = fontSize * 2.0f;
+        float titlePadding = fontSize * 1.5f;
 
         GUILayout.BeginVertical();
-        GUILayout.Space(15);
+        GUILayout.Space(titlePadding);
 
         // Key Row
         GUILayout.BeginHorizontal();
@@ -298,7 +304,6 @@ public class AzureServiceTester : MonoBehaviour
         GUILayout.BeginHorizontal();
         GUILayout.Label("Type:", GUILayout.Width(labelWidth));
         var types = new[] { "Int", "Bool", "String" };
-        // Note: Toolbar uses 'button' style by default in some Unity versions, but let's be safe
         _testValueType = (TestValueType)GUILayout.Toolbar((int)_testValueType, types, GUILayout.Height(fieldHeight));
         GUILayout.EndHorizontal();
 
@@ -312,17 +317,18 @@ public class AzureServiceTester : MonoBehaviour
 
         GUILayout.FlexibleSpace();
 
-        // Buttons
-        GUILayout.BeginHorizontal();
+        // Buttons - Stacked Vertically
         if (GUILayout.Button("Set Local", GUILayout.Height(fieldHeight * 1.2f)))
         {
             TryApplyTestValue(setOnly: true);
         }
+
+        GUILayout.Space(5); // Small gap between buttons
+
         if (GUILayout.Button("Set & Dirty", GUILayout.Height(fieldHeight * 1.2f)))
         {
             TryApplyTestValue(setOnly: false);
         }
-        GUILayout.EndHorizontal();
 
         GUILayout.Space(10);
         GUILayout.EndVertical();
