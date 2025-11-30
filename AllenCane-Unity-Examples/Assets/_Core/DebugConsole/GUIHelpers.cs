@@ -84,22 +84,18 @@ namespace Core.Utils
         }
 
         /// <summary>
-        /// Checks for button press using Legacy GUI, Mouse (New Input), and Touch (New Input).
+        /// Checks for button press. We rely solely on the IMGUI button event to avoid double-firing
+        /// when both legacy GUI and the new Input System are active (press + release).
         /// </summary>
         private static bool CheckButtonInput(Rect region, string text)
         {
             float currentTime = Time.time;
 
-            // Method 1: Standard GUI.Button
+            // Standard GUI.Button (IMGUI) only.
+            // We intentionally do NOT mix in Mouse/Touch checks here, because that can cause
+            // a single click (mouse down + up) to be counted twice in the Editor.
             if (CheckLegacyGUIInput(region, text, currentTime)) return true;
 
-#if UNITY_EDITOR
-            // Method 2: New Input System Mouse
-            if (CheckMouseInput(region, currentTime)) return true;
-
-            // Method 3: New Input System Touch
-            if (CheckTouchInput(region, currentTime)) return true;
-#endif
             return false;
         }
 
