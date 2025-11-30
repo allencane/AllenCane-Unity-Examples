@@ -31,7 +31,16 @@ public class AzureServiceTester : MonoBehaviour
 
     // UI State
     private bool _showAuthUI = false;
-    private Rect _windowRect;
+    private Rect _authWindowRect;
+
+    // Dictionary test UI
+    private bool _showDataUI = false;
+    private Rect _dataWindowRect;
+
+    private enum TestValueType { Int, Bool, String }
+    private TestValueType _testValueType = TestValueType.Int;
+    private string _testKey = "TestKey";
+    private string _testValue = "123";
 
     private void Awake()
     {
@@ -63,10 +72,15 @@ public class AzureServiceTester : MonoBehaviour
             commands.AddInfo("Player ID", () => _activePlayerId);
             commands.AddInfo("Username", () => testUsername);
 
-            // --- UI TOGGLE ---
+            // --- UI TOGGLES ---
             commands.AddSimpleCommand(">> Edit User/Pass <<", () =>
             {
                 _showAuthUI = !_showAuthUI;
+            });
+
+            commands.AddSimpleCommand(">> Edit Dictionary Entry <<", () =>
+            {
+                _showDataUI = !_showDataUI;
             });
 
             // --- AUTH COMMANDS ---
@@ -176,68 +190,178 @@ public class AzureServiceTester : MonoBehaviour
 
     private void OnGUI()
     {
-        if (!_showAuthUI) return;
+        if (!_showAuthUI && !_showDataUI) return;
 
         GUI.depth = -2000;
 
-        // Spawn window in the middle-left of the screen,
-        // roughly matching the width of the debug log panel.
-        float logPanelWidthApprox = Screen.width * 0.55f;    // matches DebugConsoleManager ~55% log width
+        float logPanelWidthApprox = Screen.width * 0.55f;
         float margin = 20f;
         float width = logPanelWidthApprox - margin * 2f;
         float height = Screen.height * 0.4f;
-        float x = margin;                                    // small margin from the left edge
-        float y = (Screen.height - height) / 2f;             // Vertically centered
-
-        if (_windowRect.width < 1)
-            _windowRect = new Rect(x, y, width, height);
 
         int fontSize = Mathf.Max(14, (int)(Screen.height * 0.025f));
-
         GUI.skin.window.fontSize = fontSize;
         GUI.skin.textField.fontSize = fontSize;
         GUI.skin.button.fontSize = fontSize;
         GUI.skin.label.fontSize = fontSize;
 
-        _windowRect = GUI.Window(1001, _windowRect, DrawAuthWindow, "Azure Credentials");
+        if (_showAuthUI)
+        {
+            float authX = margin;
+            float authY = (Screen.height - height) / 2f;
+            if (_authWindowRect.width < 1)
+                _authWindowRect = new Rect(authX, authY, width, height);
+
+            _authWindowRect = GUI.Window(1001, _authWindowRect, DrawAuthWindow, "Azure Credentials");
+        }
+
+        if (_showDataUI)
+        {
+            // Place data window slightly lower to avoid overlapping header text
+            float dataX = margin;
+            float dataY = (Screen.height - height) / 2f + height * 0.55f;
+            if (_dataWindowRect.width < 1)
+                _dataWindowRect = new Rect(dataX, dataY, width, height * 0.75f);
+
+            _dataWindowRect = GUI.Window(1002, _dataWindowRect, DrawDataWindow, "Dictionary Tester");
+        }
     }
 
     private void DrawAuthWindow(int windowID)
     {
-        float width = _windowRect.width;
-        float height = _windowRect.height;
-        int fontSize = Mathf.Max(18, (int)(height * 0.08f));
+        // 1. Calculate and enforce font size inside the window callback
+        int fontSize = Mathf.Max(14, (int)(Screen.height * 0.025f));
 
         GUI.skin.label.fontSize = fontSize;
         GUI.skin.textField.fontSize = fontSize;
         GUI.skin.button.fontSize = fontSize;
 
-        float padding = 20f;
-        float rowHeight = height * 0.2f;
-        float startY = rowHeight * 0.8f;
+        // 2. Calculate layout dimensions based on this font size
+        float labelWidth = fontSize * 5f; // Increased width allowance
+        float fieldHeight = fontSize * 2.0f; // Increased height for touch friendliness
 
-        // Lay out label + field so label has enough width not to wrap.
-        float labelWidth = width * 0.35f;
-        float fieldX = padding + labelWidth + padding;
-        float fieldWidth = width - fieldX - padding;
+        GUILayout.BeginVertical();
+        GUILayout.Space(15);
 
-        GUI.Label(new Rect(padding, startY, labelWidth, rowHeight), "User:");
-        testUsername = GUI.TextField(new Rect(fieldX, startY, fieldWidth, rowHeight), testUsername);
+        // User Row
+        GUILayout.BeginHorizontal();
+        GUILayout.Label("User:", GUILayout.Width(labelWidth));
+        testUsername = GUILayout.TextField(testUsername, GUILayout.Height(fieldHeight));
+        GUILayout.EndHorizontal();
 
-        startY += rowHeight + (padding / 2);
+        GUILayout.Space(10);
 
-        GUI.Label(new Rect(padding, startY, labelWidth, rowHeight), "PW:");
-        testPassword = GUI.TextField(new Rect(fieldX, startY, fieldWidth, rowHeight), testPassword);
+        // Password Row
+        GUILayout.BeginHorizontal();
+        GUILayout.Label("PW:", GUILayout.Width(labelWidth));
+        testPassword = GUILayout.TextField(testPassword, GUILayout.Height(fieldHeight));
+        GUILayout.EndHorizontal();
 
-        float buttonHeight = rowHeight * 1.2f;
-        float buttonY = height - buttonHeight - padding;
+        GUILayout.FlexibleSpace();
 
-        if (GUI.Button(new Rect(padding, buttonY, width - (padding * 2), buttonHeight), "Close & Save"))
+        if (GUILayout.Button("Close & Save", GUILayout.Height(fieldHeight * 1.2f)))
         {
             _showAuthUI = false;
         }
 
+        GUILayout.Space(10);
+        GUILayout.EndVertical();
+
         GUI.DragWindow();
+    }
+
+    private void DrawDataWindow(int windowID)
+    {
+        // 1. Calculate and enforce font size inside the window callback
+        int fontSize = Mathf.Max(14, (int)(Screen.height * 0.025f));
+
+        GUI.skin.label.fontSize = fontSize;
+        GUI.skin.textField.fontSize = fontSize;
+        GUI.skin.button.fontSize = fontSize;
+
+        // 2. Calculate layout dimensions based on this font size
+        float labelWidth = fontSize * 5f; // Increased width allowance
+        float fieldHeight = fontSize * 2.0f; // Increased height for touch friendliness
+
+        GUILayout.BeginVertical();
+        GUILayout.Space(15);
+
+        // Key Row
+        GUILayout.BeginHorizontal();
+        GUILayout.Label("Key:", GUILayout.Width(labelWidth));
+        _testKey = GUILayout.TextField(_testKey, GUILayout.Height(fieldHeight));
+        GUILayout.EndHorizontal();
+
+        GUILayout.Space(10);
+
+        // Type Row
+        GUILayout.BeginHorizontal();
+        GUILayout.Label("Type:", GUILayout.Width(labelWidth));
+        var types = new[] { "Int", "Bool", "String" };
+        // Note: Toolbar uses 'button' style by default in some Unity versions, but let's be safe
+        _testValueType = (TestValueType)GUILayout.Toolbar((int)_testValueType, types, GUILayout.Height(fieldHeight));
+        GUILayout.EndHorizontal();
+
+        GUILayout.Space(10);
+
+        // Value Row
+        GUILayout.BeginHorizontal();
+        GUILayout.Label("Value:", GUILayout.Width(labelWidth));
+        _testValue = GUILayout.TextField(_testValue, GUILayout.Height(fieldHeight));
+        GUILayout.EndHorizontal();
+
+        GUILayout.FlexibleSpace();
+
+        // Buttons
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button("Set Local", GUILayout.Height(fieldHeight * 1.2f)))
+        {
+            TryApplyTestValue(setOnly: true);
+        }
+        if (GUILayout.Button("Set & Dirty", GUILayout.Height(fieldHeight * 1.2f)))
+        {
+            TryApplyTestValue(setOnly: false);
+        }
+        GUILayout.EndHorizontal();
+
+        GUILayout.Space(10);
+        GUILayout.EndVertical();
+
+        GUI.DragWindow();
+    }
+
+    private void TryApplyTestValue(bool setOnly)
+    {
+        try
+        {
+            object parsed = _testValue;
+            switch (_testValueType)
+            {
+                case TestValueType.Int:
+                    parsed = int.Parse(_testValue);
+                    break;
+                case TestValueType.Bool:
+                    parsed = bool.Parse(_testValue);
+                    break;
+                case TestValueType.String:
+                    parsed = _testValue;
+                    break;
+            }
+
+            _playerData.Set(_testKey, parsed);
+            DebugConsoleManager.Log("Azure", $"Set key '{_testKey}' = {parsed} ({_testValueType})");
+
+            if (!setOnly)
+            {
+                // Mimic a change that will be picked up by GetChanges on next save
+                // (PlayerData already tracks differences internally)
+                DebugConsoleManager.Log("Azure", "Marked for next Save (PlayerData Changes).");
+            }
+        }
+        catch (Exception e)
+        {
+            DebugConsoleManager.Log("Azure", $"<color=red>Parse error:</color> {e.Message}");
+        }
     }
 }
 
