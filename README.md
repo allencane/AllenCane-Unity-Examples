@@ -1,12 +1,16 @@
-# Debug Menu, DI, Azure & Java
+# Azure & Java Debug Sandbox
 
 ---
 
 ## Project Overview
 
-This repository contains a set of Unity examples and tooling that showcase a production‑style debug menu, Azure‑backed player data, input/debug workflows suitable for mobile and desktop projects, and a little bit of dependency injection & service work.
+This repository contains a set of Unity examples and tooling that showcase a production‑style debug menu, Azure‑backed (Java Azure Functions) player data, and input/debug workflows suitable for mobile and desktop projects. Use the in‑game Dictionary Tester to create your own data keys that get validated and saved to Azure Table Storage.
 
-[Watch the demo video on YouTube](https://youtu.be/YAfE67S2xgU)
+[Project Shipping Package File (Windows PC, Google Drive)](https://drive.google.com/file/d/17m9wrfci9WuBWHc1u84x_CWJ-tSGE5be/view?usp=sharing)
+
+## Demo Video:
+
+[![Watch the demo](https://img.youtube.com/vi/YOFGot9OADw/maxresdefault.jpg)](https://youtu.be/YOFGot9OADw)
 
 ---
 
@@ -38,27 +42,40 @@ The **AzureServiceTester** component registers a folder in the debug console cal
 ### Commands in `Azure Test`
 
 - **Status, Player ID, Username**
-  - Read‑only info panels showing your current auth/session state.
+  - Read-only info panels showing your current Azure/auth state:
+    - **Status**: High-level connection/auth status (e.g., logged-in vs guest, last error).
+    - **Player ID**: The current `playerId` used for Azure calls.
+    - **Username**: The username tied to this session.
+
 - **>> Edit User/Pass <<**
   - Opens a small overlay window to edit username and password.
-- **>> Edit Dictionary Entry <<**
-  - Opens the **Dictionary Tester** window (see below).
+
 - **1. Register User**
   - Calls the RegisterUser Azure Function (auth endpoint).
-- **2. Login User**
-  - Calls the LoginUser Azure Function and stores the session token.
-- **3. Logout**
-  - Clears the token and swaps back to a guest ID.
-- **Save (PlayerData Changes)**
-  - Pushes only **changed keys** from the local PlayerData dictionary to Azure (SavePlayerAccount).
-- **Load (PlayerData)**
-  - Calls GetPlayerAccount, applies the cloud payload into PlayerData, and logs the full dictionary on the Data tab.
-- **Reset Stats (PlayerData)**
-  - Locally sets:
+  - For brand-new users, also creates a default PlayerAccounts row with:
     - Coins = 0
     - PlayerLevel = 1
     - ExperiencePoints = 0
-  - Press **Save** to persist those values.
+
+- **2. Login User**
+  - Calls the LoginUser Azure Function and stores the session token for subsequent data calls.
+
+- **3. Load (PlayerData)**
+  - Calls GetPlayerAccount, applies the cloud payload into PlayerData, and logs the filtered, formatted dictionary on the **Azure** data tab.
+
+- **>> Edit Dictionary Entry <<**
+  - Opens the **Dictionary Tester** window to inspect and edit PlayerData entries (supports int, float, bool, and string), with Azure-safe key validation.
+
+- **Save (PlayerData Changes)**
+  - Pushes only **changed keys** from the local PlayerData dictionary to Azure (SavePlayerAccount).
+  - Uses whatever values you set via the Dictionary Tester; it does not overwrite them from inspector fields.
+
+- **Logout**
+  - Clears the session token and swaps back to a guest ID without modifying cloud data.
+
+- **Delete All Data (Cloud)**
+  - Performs a full cloud wipe for the current playerId by deleting the PlayerAccounts row in Azure.
+  - After deletion, recreates default stats (Coins = 0, PlayerLevel = 1, ExperiencePoints = 0) and saves them back to Azure.
 
 ---
 

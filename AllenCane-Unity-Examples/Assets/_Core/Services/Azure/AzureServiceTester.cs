@@ -1,6 +1,7 @@
 using UnityEngine;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Core.Data;
 using Core.Services.Azure;
 using Core.Services;
@@ -17,7 +18,7 @@ public class AzureServiceTester : MonoBehaviour
     [SerializeField] private string testUsername = "Playtester";
     [SerializeField] private string testPassword = "Password123!";
     [SerializeField] private int coins = 0;
-    [SerializeField] private int level = 1;
+    [SerializeField] private int playerLevel = 1;
     [SerializeField] private int xp = 0;
 
     // Core data + services
@@ -52,7 +53,7 @@ public class AzureServiceTester : MonoBehaviour
 
         // Seed inspector view from PlayerData defaults
         coins = _playerData.Get<int>("Coins", 0);
-        level = _playerData.Get<int>("PlayerLevel", 1);
+        playerLevel = _playerData.Get<int>("PlayerLevel", 1);
         xp = _playerData.Get<int>("ExperiencePoints", 0);
     }
 
@@ -76,11 +77,6 @@ public class AzureServiceTester : MonoBehaviour
             commands.AddSimpleCommand(">> Edit User/Pass <<", () =>
             {
                 _showAuthUI = !_showAuthUI;
-            });
-
-            commands.AddSimpleCommand(">> Edit Dictionary Entry <<", () =>
-            {
-                _showDataUI = !_showDataUI;
             });
 
             // --- AUTH COMMANDS ---
@@ -115,6 +111,75 @@ public class AzureServiceTester : MonoBehaviour
                     DebugConsoleManager.Log("Azure", $"<color=red>LOGIN FAILED:</color> {message}");
             });
 
+            // --- DATA FLOW COMMANDS (ordered as requested) ---
+            commands.AddSimpleCommand("3. Load (PlayerData)", async () =>
+            {
+                DebugConsoleManager.Log("Azure", $"Loading dictionary for {_activePlayerId}...");
+                var (success, data) = await _dataSyncService.LoadAsync(_activePlayerId, _sessionToken);
+
+                if (success && data != null)
+                {
+                    var gameKeyCount = CountGameKeys(data.Keys);
+                    DebugConsoleManager.Log("Azure", $"Loaded {data.Count} keys from cloud ({gameKeyCount} game keys).");
+                    LogAzureKeys("Load", data.Keys);
+                    LogAzureDict("Load", data);
+                    _playerData.ApplyCloudLoad(data);
+
+                    // Pull data back into inspector fields
+                    coins = _playerData.Get("Coins", 0);
+                    playerLevel = _playerData.Get("PlayerLevel", 1);
+                    xp = _playerData.Get("ExperiencePoints", 0);
+
+                    DebugConsoleManager.Log("Azure", "<color=green>LOADED (DICT)</color>");
+                    DebugConsoleManager.Log("Data", "--- Full Dictionary Contents ---");
+                    DebugConsoleManager.Log("Data", _playerData.ToDebugString(includeMetadata: false));
+                    DebugConsoleManager.Log("Data", "--------------------------------");
+                }
+                else
+                {
+                    DebugConsoleManager.Log("Azure", "<color=red>FAILED to load dictionary.</color>");
+                }
+            });
+
+            // Dictionary tester just under Load for convenience
+            commands.AddSimpleCommand(">> Edit Dictionary Entry <<", () =>
+            {
+                _showDataUI = !_showDataUI;
+            });
+
+            commands.AddSimpleCommand("Save (PlayerData Changes)", async () =>
+            {
+                var changes = _playerData.GetChanges();
+                DebugConsoleManager.Log("Azure", $"Preparing to save {changes.Count} changed keys...");
+                LogAzureKeys("Save", changes.Keys);
+                LogAzureDict("Save", changes);
+
+                var (success, message) = await _dataSyncService.SaveAsync(_activePlayerId, changes, _sessionToken);
+
+                if (success)
+                {
+                    _playerData.CommitChanges();
+                    DebugConsoleManager.Log("Azure", $"<color=green>SAVED (DICT):</color> {message}");
+                }
+                else
+                {
+                    DebugConsoleManager.Log("Azure", $"<color=red>FAILED (DICT):</color> {message}");
+                }
+            });
+
+            commands.AddSimpleCommand("Logout", () =>
+            {
+                _sessionToken = null;
+                _activePlayerId = "guest-" + System.Guid.NewGuid().ToString().Substring(0, 6);
+                DebugConsoleManager.Log("Azure", "Logged out. Switched to Guest ID.");
+            });
+
+            // Convenience command: full wipe + recreate default stats for the active player
+            commands.AddSimpleCommand("Delete All Data (Cloud)", () =>
+            {
+                DeleteAllData();
+            });
+
             commands.AddSimpleCommand("3. Logout", () =>
             {
                 _sessionToken = null;
@@ -125,14 +190,10 @@ public class AzureServiceTester : MonoBehaviour
             // --- DATA COMMANDS (Incremental PlayerData sync) ---
             commands.AddSimpleCommand("Save (PlayerData Changes)", async () =>
             {
-                // Push inspector values into PlayerData
-                _playerData.Set("Coins", coins);
-                _playerData.Set("PlayerLevel", level);
-                _playerData.Set("ExperiencePoints", xp);
-
                 var changes = _playerData.GetChanges();
                 DebugConsoleManager.Log("Azure", $"Preparing to save {changes.Count} changed keys...");
                 LogAzureKeys("Save", changes.Keys);
+                LogAzureDict("Save", changes);
 
                 var (success, message) = await _dataSyncService.SaveAsync(_activePlayerId, changes, _sessionToken);
 
@@ -154,18 +215,20 @@ public class AzureServiceTester : MonoBehaviour
 
                 if (success && data != null)
                 {
-                    DebugConsoleManager.Log("Azure", $"Loaded {data.Count} keys from cloud.");
+                    var gameKeyCount = CountGameKeys(data.Keys);
+                    DebugConsoleManager.Log("Azure", $"Loaded {data.Count} keys from cloud ({gameKeyCount} game keys).");
                     LogAzureKeys("Load", data.Keys);
+                    LogAzureDict("Load", data);
                     _playerData.ApplyCloudLoad(data);
 
                     // Pull data back into inspector fields
                     coins = _playerData.Get("Coins", 0);
-                    level = _playerData.Get("PlayerLevel", 1);
+                    playerLevel = _playerData.Get("PlayerLevel", 1);
                     xp = _playerData.Get("ExperiencePoints", 0);
 
                     DebugConsoleManager.Log("Azure", "<color=green>LOADED (DICT)</color>");
                     DebugConsoleManager.Log("Data", "--- Full Dictionary Contents ---");
-                    DebugConsoleManager.Log("Data", _playerData.ToDebugString().Replace(", ", "\n"));
+                    DebugConsoleManager.Log("Data", _playerData.ToDebugString(includeMetadata: false));
                     DebugConsoleManager.Log("Data", "--------------------------------");
                 }
                 else
@@ -174,17 +237,10 @@ public class AzureServiceTester : MonoBehaviour
                 }
             });
 
-            commands.AddSimpleCommand("Reset Stats (PlayerData)", () =>
+            // Convenience command: full wipe + recreate default stats for the active player
+            commands.AddSimpleCommand("Delete All Data (Cloud)", () =>
             {
-                coins = 0;
-                level = 1;
-                xp = 0;
-
-                _playerData.Set("Coins", 0);
-                _playerData.Set("PlayerLevel", 1);
-                _playerData.Set("ExperiencePoints", 0);
-
-                DebugConsoleManager.Log("Azure", "Reset local PlayerData stats to 0/1/0. Use Save to persist.");
+                DeleteAllData();
             });
         }
         commands.EndFolder();
@@ -387,22 +443,17 @@ public class AzureServiceTester : MonoBehaviour
             // Reset local to defaults
             _playerData = new PlayerData();
             coins = 0;
-            level = 1;
+            playerLevel = 1;
             xp = 0;
             DebugConsoleManager.Log("Azure", "Local data reset to defaults.");
 
             // Immediately push default stats back to the cloud so a Load sees 0/1/0 instead of missing row
             var defaults = new Dictionary<string, object>
             {
-                // New dictionary-based keys
+                // Canonical dictionary-based keys only (no legacy fixed-field mirrors)
                 { "Coins", coins },
-                { "PlayerLevel", level },
-                { "ExperiencePoints", xp },
-
-                // Legacy static keys so old columns (coins/level/xp) are also reset
-                { "coins", coins },
-                { "level", level },
-                { "xp", xp }
+                { "PlayerLevel", playerLevel },
+                { "ExperiencePoints", xp }
             };
 
             DebugConsoleManager.Log("Azure", "Recreating default stats on cloud after wipe...");
@@ -486,12 +537,57 @@ public class AzureServiceTester : MonoBehaviour
         }
     }
 
+    private bool IsMetadataKey(string key)
+    {
+        if (key == null) return false;
+        var k = key.ToLowerInvariant();
+        if (k.StartsWith("odata.")) return true;
+        if (k.StartsWith("timestamp")) return true; // Timestamp & Timestamp@odata.type
+        if (k == "partitionkey" || k == "rowkey") return true;
+        return false;
+    }
+
+    private int CountGameKeys(IEnumerable<string> keys)
+    {
+        if (keys == null) return 0;
+        return keys.Count(k => !IsMetadataKey(k));
+    }
+
     private void LogAzureKeys(string context, IEnumerable<string> keys)
     {
         if (keys == null) return;
-        var list = new List<string>(keys);
-        if (list.Count == 0) return;
-        DebugConsoleManager.Log("Azure", $"{context} keys: " + string.Join(", ", list));
+        var gameKeys = keys
+            .Where(k => !IsMetadataKey(k))
+            .OrderBy(k => k, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (gameKeys.Count == 0) return;
+
+        var body = string.Join("\n", gameKeys);
+        DebugConsoleManager.Log(
+            "Azure",
+            $"\n▶ {context} keys:\n----------------\n{body}\n----------------"
+        );
+    }
+
+    private void LogAzureDict(string context, IDictionary<string, object> dict)
+    {
+        if (dict == null || dict.Count == 0) return;
+
+        var lines = dict
+            .Where(kv => !IsMetadataKey(kv.Key))
+            .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(kv => $"{kv.Key}:{kv.Value}")
+            .ToList();
+
+        if (lines.Count == 0)
+            return;
+
+        // Single log entry: timestamp once, then a visual header + separators + values
+        var body = string.Join("\n", lines);
+        DebugConsoleManager.Log(
+            "Azure",
+            $"\n▶ {context} values:\n----------------\n{body}\n----------------"
+        );
     }
 }
 

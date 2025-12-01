@@ -71,36 +71,6 @@ namespace Core.Examples
         {
             var commands = DebugConsoleManager.Instance.Commands;
 
-            // ===== Account Folder (First Entry!) =====
-            commands.StartFolder("Account");
-            {
-                commands.AddSimpleCommand("Reset Player", () =>
-                {
-                    DebugConsoleManager.Log("Account", "Reset Player requested (Not implemented in vanilla version)");
-                });
-
-                commands.StartFolder("Reset");
-                {
-                    commands.AddSimpleCommand("Clear Analytics ID", () =>
-                    {
-                        DebugConsoleManager.Log("Account", "Cleared Analytics ID");
-                    });
-
-                    commands.AddSimpleCommand("Clear First Install Pref", () =>
-                    {
-                        PlayerPrefs.DeleteKey("FirstInstall");
-                        DebugConsoleManager.Log("Account", "Cleared First Install Pref");
-                    });
-                }
-                commands.EndFolder();
-
-                commands.AddSimpleCommand("Clear Login Provider", () =>
-                {
-                    DebugConsoleManager.Log("Account", "Cleared Login Provider");
-                });
-            }
-            commands.EndFolder();
-
             // ===== Core Folder (Renamed from System) =====
             commands.StartFolder("Core");
             {

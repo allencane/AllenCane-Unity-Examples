@@ -150,9 +150,28 @@ namespace Core.Data
             return _data.Keys.ToList();
         }
 
-        public string ToDebugString()
+        /// <summary>
+        /// By default filters out Azure metadata keys (odata.*, PartitionKey/RowKey/Timestamp).
+        /// </summary>
+        public string ToDebugString(bool includeMetadata = false)
         {
-            return string.Join(", ", _data.Select(kv => $"{kv.Key}:{kv.Value}"));
+            bool IsMetadata(string key)
+            {
+                if (key == null) return false;
+                key = key.ToLowerInvariant();
+                if (key.StartsWith("odata.")) return true;
+                if (key.StartsWith("timestamp")) return true; // Timestamp and Timestamp@odata.type
+                if (key == "partitionkey" || key == "rowkey") return true;
+                return false;
+            }
+
+            var ordered = _data.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase);
+
+            var lines = ordered
+                .Where(kv => includeMetadata || !IsMetadata(kv.Key))
+                .Select(kv => $"{kv.Key}:{kv.Value}");
+
+            return string.Join("\n", lines);
         }
     }
 }
